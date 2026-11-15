@@ -1,7 +1,7 @@
 """
 config.py — this is the one file you actually need to edit.
 
-Set your role, skills, and experience level here and Quaero will do the rest.
+Set your role, skills, and experience level here and jobctl will do the rest.
 Everything from which portals to query to how strict the scoring cutoff is
 lives in this file.
 """
@@ -9,7 +9,7 @@ lives in this file.
 # ---------------------------------------------------------------------------
 # JOB TITLES TO MATCH AGAINST
 # ---------------------------------------------------------------------------
-# Quaero scores incoming job titles against this list.
+# jobctl scores incoming job titles against this list.
 # Add or remove titles to match how companies in your target industry write them.
 TARGET_JOB_TITLES = [
     # Standard Full-Stack & Web Titles
@@ -189,5 +189,5 @@ ADZUNA_COUNTRY_CODE = "us"
 # ---------------------------------------------------------------------------
 # OUTPUT
 # ---------------------------------------------------------------------------
-OUTPUT_DOCX_PATH = "quaero_matched_jobs.docx"
+OUTPUT_DOCX_PATH = "jobctl_matched_jobs.docx"
 RESULTS_PER_SOURCE = 30

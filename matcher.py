@@ -1,5 +1,5 @@
 """
-matcher.py — the filtering and scoring brain of Quaero.
+matcher.py — the filtering and scoring brain of jobctl.
 
 Every job listing that comes in from the adapters passes through here.
 The flow is simple:

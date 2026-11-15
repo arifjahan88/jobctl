@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+dist/
+build/
 
 # Virtual environments
 .venv/
@@ -17,9 +20,18 @@ venv.bak/
 .env.*.local
 *.secret
 
-# Generated output files
+# Personal configuration override
+jobctl.toml
+
+# jobctl generated search results & SQLite history
+search_results/
+data/
+output/
 *.docx
-matched_jobs.docx
+~$*.docx
+*.db
+*.sqlite
+*.sqlite3
 
 # Logs
 *.log

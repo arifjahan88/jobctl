@@ -116,7 +116,7 @@ def fetch_jobs(profile: dict, limit: int = 30) -> list:
     2. Find all JobListing objects in Apollo cache, keep only remote ones
     3. Filter by title relevance and resolve company names from __ref pointers
     4. Fetch full descriptions concurrently for the candidate batch
-    5. Normalize everything into the standard Quaero job schema
+    5. Normalize everything into the standard jobctl job schema
     """
     try:
         res = requests.get(WELLFOUND_JOBS_URL, headers=_HEADERS, timeout=10)

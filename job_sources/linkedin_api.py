@@ -148,7 +148,7 @@ def fetch_jobs(profile: dict, limit: int = 30) -> list:
     Main entry point. Runs targeted queries (role + skills, "Junior <role>",
     and remote-targeted variations) across multiple pages, then fetches full
     descriptions for each card concurrently, and normalizes everything into
-    the standard Quaero job dict schema.
+    the standard jobctl job dict schema.
     """
     role_title = profile.get("role_title", "Full Stack Developer")
     target_skills = profile.get("target_skills", [])

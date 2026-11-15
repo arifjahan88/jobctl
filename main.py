@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-main.py — the entry point for Quaero.
+main.py — the entry point for jobctl.
 
 Here's the rough flow of what happens when you run this:
   1. Load your profile and skill preferences from config.py
@@ -8,7 +8,7 @@ Here's the rough flow of what happens when you run this:
   3. Merge all results and remove duplicates
   4. Hard-filter out anything that's not remote, not junior, or too senior
   5. Score each surviving listing against your skills (0–100)
-  6. Write the top matches into quaero_matched_jobs.docx
+  6. Write the top matches into jobctl_matched_jobs.docx
 
 Run it with:  python main.py
 """
@@ -95,7 +95,7 @@ def fetch_all_jobs() -> list:
 
 def main():
     print(
-        f"=== Quaero — Searching for '{config.PROFILE['role_title']}' "
+        f"=== jobctl — Searching for '{config.PROFILE['role_title']}' "
         f"({config.PROFILE['proficiency_level']}, 100% Remote, Worldwide) ===\n"
     )
 
