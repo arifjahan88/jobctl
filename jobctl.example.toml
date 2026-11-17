@@ -1,0 +1,113 @@
+# ===========================================================================
+# jobctl.example.toml — Control-plane configuration for jobctl
+# Copy this file to jobctl.toml (or run `jobctl init`) to customize.
+# ===========================================================================
+
+[profile]
+role_title = "Software Engineer"
+# Options: "intern" (0 yr), "entry" (0-1 yr), "junior" (0-2 yrs), "mid" (2-5 yrs), "senior" (5-10 yrs)
+level = "mid"
+work_modes = ["remote"]
+job_types = ["full-time", "contract"]
+location = "Worldwide"
+
+# Target skills used for scoring (word-boundary + alias matching)
+skills = [
+    "typescript",
+    "javascript",
+    "node.js",
+    "nestjs",
+    "express",
+    "react",
+    "next.js",
+    "postgresql",
+    "sql",
+    "redis",
+    "docker",
+    "kubernetes",
+    "ci/cd",
+    "github actions",
+    "aws",
+    "linux",
+    "terraform",
+    "nginx",
+    "microservices",
+    "rest api",
+    "erp",
+]
+
+# Target titles scored for title relevance
+target_titles = [
+    "Software Engineer",
+    "Software Engineer II",
+    "Software Development Engineer",
+    "Software Development Engineer II",
+    "SDE II",
+    "Backend Engineer",
+    "Backend Developer",
+    "Full Stack Engineer",
+    "Full-Stack Engineer",
+    "Full Stack Developer",
+    "Full-Stack Developer",
+    "Platform Engineer",
+    "DevOps Engineer",
+    "Site Reliability Engineer",
+    "Cloud Engineer",
+    "Infrastructure Engineer",
+    "Database Engineer",
+    "PostgreSQL Engineer",
+    "Node.js Engineer",
+    "TypeScript Engineer",
+    "ERP Developer",
+    "ERP Software Engineer",
+    "Systems Engineer",
+]
+
+[filters]
+# Strictly search only jobs posted within the previous 2 dates (today + previous 2 calendar days)
+max_posting_age_days = 2
+# Drop listings that lack a valid parseable posted_date so stale jobs never leak through
+require_posted_date = true
+
+[scoring]
+min_score = 60
+min_skills_pct = 50
+min_title_pct = 50
+skill_match_target = 5
+
+[scoring.weights]
+skills = 0.55
+title = 0.35
+job_type = 0.10
+
+[sources.linkedin]
+enabled = true
+limit = 40
+
+[sources.wellfound]
+enabled = true
+limit = 30
+
+[sources.ashby]
+enabled = true
+limit = 40
+
+[sources.greenhouse]
+enabled = true
+limit = 60
+
+[sources.lever]
+enabled = true
+limit = 40
+
+[sources.adzuna]
+enabled = false
+limit = 30
+country_code = "us"
+
+[output]
+# Every run creates search_results/<YYYY-MM-DD>/ and saves all output files inside it
+results_dir = "search_results"
+formats = ["docx", "csv", "json", "md"]
+only_new = true
+history_db = "data/jobctl.db"
