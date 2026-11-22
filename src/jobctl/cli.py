@@ -1,4 +1,4 @@
-"""Command-line interface (`jobctl`) with run, sources, history, and init subcommands."""
+"""Command-line interface (`jobctl`) with run, daemon, notify-test, sources, history, and init subcommands."""
 
 from __future__ import annotations
 
@@ -10,7 +10,13 @@ import sys
 from jobctl import __version__
 from jobctl.config import KNOWN_SOURCES, load_config
 from jobctl.log import setup_logger
+from jobctl.notifiers import (
+    load_telegram_config_from_env,
+    send_telegram_report,
+    send_telegram_test_message,
+)
 from jobctl.pipeline import SOURCE_ORDER, run_pipeline
+from jobctl.scheduler import load_schedule_from_env, run_daemon
 from jobctl.sources import get_registered_sources
 from jobctl.storage import HistoryStore
 
@@ -39,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--sources",
         type=str,
         default=None,
-        help="Comma-separated list of sources to query (e.g. greenhouse,ashby,linkedin)",
+        help="Comma-separated list of sources to query (e.g. greenhouse,ashby,remotive)",
     )
     run_p.add_argument("--min-score", type=int, default=None, help="Override scoring.min_score")
     run_p.add_argument(
@@ -67,11 +73,72 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include previously seen jobs in exported reports",
     )
     run_p.add_argument(
+        "--notify",
+        action="store_true",
+        help="Force sending formatted Telegram job links after the run",
+    )
+    run_p.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Disable Telegram notification for this run",
+    )
+    run_p.add_argument(
         "--dry-run",
         action="store_true",
         help="Run fetch and scoring without writing files or updating SQLite history",
     )
     run_p.add_argument("-v", "--verbose", action="store_true", help="Enable verbose debug logging")
+
+    # jobctl daemon
+    daemon_p = subparsers.add_parser(
+        "daemon",
+        help="Run continuously in background (Docker -d) on a configurable daily/weekday schedule and notify Telegram",
+    )
+    daemon_p.add_argument("-c", "--config", type=str, default=None, help="Path to jobctl.toml")
+    daemon_p.add_argument(
+        "-s",
+        "--sources",
+        type=str,
+        default=None,
+        help="Optional comma-separated list of sources to query",
+    )
+    daemon_p.add_argument(
+        "--time",
+        type=str,
+        default=None,
+        help="24-hour schedule time HH:MM (overrides JOBCTL_SCHEDULE_TIME, default: 11:00)",
+    )
+    daemon_p.add_argument(
+        "--schedule-days",
+        type=str,
+        default=None,
+        help="Days to run: 'daily', 'weekdays', or 'sun,mon,tue,wed,thu' (overrides JOBCTL_SCHEDULE_DAYS)",
+    )
+    daemon_p.add_argument(
+        "--tz",
+        type=str,
+        default=None,
+        help="IANA timezone name (overrides TZ env var, default: Asia/Dhaka)",
+    )
+    daemon_p.add_argument(
+        "--run-on-startup",
+        action="store_true",
+        default=None,
+        help="Execute one search immediately when the daemon starts before waiting for the scheduled time",
+    )
+    daemon_p.add_argument("-v", "--verbose", action="store_true", help="Enable verbose debug logging")
+
+    # jobctl notify-test
+    sub_notify = subparsers.add_parser(
+        "notify-test",
+        help="Send a test message to your Telegram chat using TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID",
+    )
+    sub_notify.add_argument(
+        "--env-file",
+        type=str,
+        default=".env",
+        help="Optional path to .env file (default: .env)",
+    )
 
     # jobctl sources
     src_p = subparsers.add_parser("sources", help="List available job portal adapters and their status")
@@ -119,8 +186,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
 def _cmd_sources(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     registry = get_registered_sources()
-    print(f"{'SOURCE':<12} {'STATUS':<10} {'LIMIT':<7} DESCRIPTION")
-    print("-" * 72)
+    print(f"{'SOURCE':<16} {'STATUS':<10} {'LIMIT':<7} DESCRIPTION")
+    print("-" * 78)
     for name in SOURCE_ORDER:
         opts = cfg.sources.get(name)
         src = registry.get(name)
@@ -128,7 +195,7 @@ def _cmd_sources(args: argparse.Namespace) -> int:
         status = "enabled" if enabled else "disabled"
         limit = opts.limit if opts else 0
         desc = src.description if src else ""
-        print(f"{name:<12} {status:<10} {limit:<7} {desc}")
+        print(f"{name:<16} {status:<10} {limit:<7} {desc}")
     return 0
 
 
@@ -156,6 +223,27 @@ def _cmd_history(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_notify_test(args: argparse.Namespace) -> int:
+    tg = load_telegram_config_from_env(dotenv_path=args.env_file)
+    ok, err = send_telegram_test_message(tg_config=tg)
+    if ok:
+        print("Telegram test message sent! Check your Telegram chat.")
+        return 0
+    print(f"Failed to send Telegram test message: {err}", file=sys.stderr)
+    return 1
+
+
+def _parse_selected_sources(raw_sources: str | None) -> tuple[list[str] | None, int]:
+    if not raw_sources:
+        return None, 0
+    selected = [s.strip().lower() for s in raw_sources.split(",") if s.strip()]
+    unknown = set(selected) - KNOWN_SOURCES
+    if unknown:
+        print(f"Unknown source(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+        return None, 2
+    return selected, 0
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     setup_logger(verbose=getattr(args, "verbose", False))
     cfg = load_config(args.config)
@@ -169,21 +257,55 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if args.results_dir:
         cfg.output.results_dir = args.results_dir
 
-    selected_sources: list[str] | None = None
-    if args.sources:
-        selected_sources = [s.strip().lower() for s in args.sources.split(",") if s.strip()]
-        unknown = set(selected_sources) - KNOWN_SOURCES
-        if unknown:
-            print(f"Unknown source(s): {', '.join(sorted(unknown))}", file=sys.stderr)
-            return 2
+    selected_sources, err_code = _parse_selected_sources(args.sources)
+    if err_code != 0:
+        return err_code
 
-    run_pipeline(
+    result = run_pipeline(
         cfg,
         selected_sources=selected_sources,
         dry_run=args.dry_run,
         include_seen=args.all,
     )
+
+    if not args.dry_run and not getattr(args, "no_notify", False):
+        tg = load_telegram_config_from_env()
+        if getattr(args, "notify", False):
+            tg.enabled = True
+        if tg.enabled and tg.is_configured:
+            date_dir = result.run_paths.date_dir if result.run_paths else None
+            send_telegram_report(
+                jobs=result.exported_jobs,
+                config=cfg,
+                tg_config=tg,
+                run_date_dir=date_dir,
+            )
+
     return 0
+
+
+def _cmd_daemon(args: argparse.Namespace) -> int:
+    setup_logger(verbose=getattr(args, "verbose", False))
+    selected_sources, err_code = _parse_selected_sources(args.sources)
+    if err_code != 0:
+        return err_code
+
+    try:
+        schedule = load_schedule_from_env(
+            time_override=args.time,
+            days_override=args.schedule_days,
+            tz_override=args.tz,
+            run_on_startup_override=args.run_on_startup,
+        )
+    except ValueError as exc:
+        print(f"Invalid schedule configuration: {exc}", file=sys.stderr)
+        return 2
+
+    return run_daemon(
+        config_loader=lambda: load_config(args.config),
+        schedule=schedule,
+        selected_sources=selected_sources,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,6 +322,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_sources(args)
     if args.command == "history":
         return _cmd_history(args)
+    if args.command == "notify-test":
+        return _cmd_notify_test(args)
+    if args.command == "daemon":
+        return _cmd_daemon(args)
     if args.command == "run":
         return _cmd_run(args)
 
