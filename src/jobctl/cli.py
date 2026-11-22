@@ -145,9 +145,31 @@ def build_parser() -> argparse.ArgumentParser:
     src_p.add_argument("-c", "--config", type=str, default=None, help="Path to jobctl.toml")
 
     # jobctl history
-    hist_p = subparsers.add_parser("history", help="Inspect recently matched jobs stored in SQLite")
+    hist_p = subparsers.add_parser("history", help="Inspect or clear matched jobs stored in SQLite")
     hist_p.add_argument("-c", "--config", type=str, default=None, help="Path to jobctl.toml")
     hist_p.add_argument("-n", "--limit", type=int, default=20, help="Number of recent jobs to display")
+    hist_p.add_argument(
+        "--urls",
+        action="store_true",
+        help="Show direct apply URLs under each tracked job",
+    )
+    hist_p.add_argument(
+        "--clear",
+        action="store_true",
+        help="Delete all tracked jobs from SQLite history",
+    )
+    hist_p.add_argument(
+        "--older-than",
+        type=int,
+        default=None,
+        metavar="DAYS",
+        help="Delete tracked jobs last seen more than DAYS days ago",
+    )
+    hist_p.add_argument(
+        "--path",
+        action="store_true",
+        help="Print the resolved path of the SQLite history database and exit",
+    )
 
     # jobctl init
     init_p = subparsers.add_parser("init", help="Create jobctl.toml from jobctl.example.toml")
@@ -202,11 +224,31 @@ def _cmd_sources(args: argparse.Namespace) -> int:
 def _cmd_history(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
     db_path = Path(cfg.output.history_db)
+
+    if getattr(args, "path", False):
+        print(db_path.resolve())
+        return 0
+
     if not db_path.exists():
         print(f"No history database found at {db_path}. Run `jobctl run` first.")
         return 0
 
     store = HistoryStore(db_path)
+
+    if getattr(args, "clear", False):
+        deleted = store.clear()
+        print(f"Cleared {deleted} tracked job(s) from {db_path}.")
+        return 0
+
+    older_than = getattr(args, "older_than", None)
+    if older_than is not None:
+        if older_than < 0:
+            print("--older-than must be >= 0", file=sys.stderr)
+            return 2
+        deleted = store.clear_older_than(older_than)
+        print(f"Removed {deleted} job(s) older than {older_than} day(s) from {db_path}.")
+        return 0
+
     rows = store.list_recent(limit=args.limit)
     total = store.count()
     print(f"jobctl SQLite History ({db_path}) — {total} total tracked job(s)\n")
@@ -214,12 +256,15 @@ def _cmd_history(args: argparse.Namespace) -> int:
         print("No jobs recorded yet.")
         return 0
 
+    show_urls = getattr(args, "urls", False)
     for row in rows:
         seen_date = str(row["first_seen"])[:10]
         print(
             f"  [{row['score']:>3}] {row['title']} @ {row['company']} "
             f"[{row['source']}] (first seen {seen_date}, seen x{row['times_seen']})"
         )
+        if show_urls and row.get("url"):
+            print(f"        -> {row['url']}")
     return 0
 
 
@@ -274,11 +319,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
             tg.enabled = True
         if tg.enabled and tg.is_configured:
             date_dir = result.run_paths.date_dir if result.run_paths else None
+            skipped_seen = max(0, len(result.matched_jobs) - len(result.exported_jobs))
             send_telegram_report(
                 jobs=result.exported_jobs,
                 config=cfg,
                 tg_config=tg,
                 run_date_dir=date_dir,
+                skipped_seen_count=skipped_seen,
             )
 
     return 0

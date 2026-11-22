@@ -1,4 +1,4 @@
-.PHONY: install lint test run dry-run daemon notify-test sources history docker-build docker-run docker-up docker-down docker-logs clean
+.PHONY: install lint test run dry-run daemon notify-test sources history history-clear reset-all docker-build docker-run docker-up docker-down docker-logs clean
 
 PYTHON ?= .venv/bin/python
 JOBCTL ?= .venv/bin/jobctl
@@ -30,6 +30,12 @@ sources:
 
 history:
 	$(PYTHON) -m jobctl history
+
+history-clear:
+	$(PYTHON) -m jobctl history --clear
+
+reset-all:
+	rm -f data/jobctl.db && rm -rf search_results/*
 
 docker-build:
 	docker build -t jobctl:latest .
