@@ -31,6 +31,14 @@ SOURCE_ORDER: tuple[str, ...] = (
     "ashby",
     "greenhouse",
     "lever",
+    "remotive",
+    "remoteok",
+    "weworkremotely",
+    "hackernews",
+    "smartrecruiters",
+    "recruitee",
+    "workable",
+    "bdjobs",
     "adzuna",
 )
 

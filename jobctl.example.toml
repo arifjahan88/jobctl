@@ -100,6 +100,38 @@ limit = 60
 enabled = true
 limit = 40
 
+[sources.remotive]
+enabled = true
+limit = 35
+
+[sources.remoteok]
+enabled = true
+limit = 35
+
+[sources.weworkremotely]
+enabled = true
+limit = 35
+
+[sources.hackernews]
+enabled = true
+limit = 40
+
+[sources.smartrecruiters]
+enabled = true
+limit = 35
+
+[sources.recruitee]
+enabled = true
+limit = 30
+
+[sources.workable]
+enabled = true
+limit = 30
+
+[sources.bdjobs]
+enabled = true
+limit = 25
+
 [sources.adzuna]
 enabled = false
 limit = 30

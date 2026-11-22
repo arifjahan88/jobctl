@@ -132,7 +132,22 @@ DEFAULT_MID_TARGET_TITLES: list[str] = [
 ]
 
 KNOWN_SOURCES: frozenset[str] = frozenset(
-    {"linkedin", "wellfound", "ashby", "greenhouse", "lever", "adzuna"}
+    {
+        "linkedin",
+        "wellfound",
+        "ashby",
+        "greenhouse",
+        "lever",
+        "remotive",
+        "remoteok",
+        "weworkremotely",
+        "hackernews",
+        "smartrecruiters",
+        "recruitee",
+        "workable",
+        "bdjobs",
+        "adzuna",
+    }
 )
 
 
@@ -242,6 +257,14 @@ def default_sources() -> dict[str, SourceOptions]:
         "ashby": SourceOptions(enabled=True, limit=40),
         "greenhouse": SourceOptions(enabled=True, limit=60),
         "lever": SourceOptions(enabled=True, limit=40),
+        "remotive": SourceOptions(enabled=True, limit=35),
+        "remoteok": SourceOptions(enabled=True, limit=35),
+        "weworkremotely": SourceOptions(enabled=True, limit=35),
+        "hackernews": SourceOptions(enabled=True, limit=40),
+        "smartrecruiters": SourceOptions(enabled=True, limit=35),
+        "recruitee": SourceOptions(enabled=True, limit=30),
+        "workable": SourceOptions(enabled=True, limit=30),
+        "bdjobs": SourceOptions(enabled=True, limit=25),
         "adzuna": SourceOptions(
             enabled=False,
             limit=30,
