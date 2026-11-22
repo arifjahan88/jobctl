@@ -51,10 +51,12 @@ def test_format_telegram_messages_contains_clickable_links_and_no_files() -> Non
     assert len(messages) == 1
     msg = messages[0]
     assert "jobctl Daily Job Report" in msg
+    assert "Previous 2 days (2026-11-20 to 2026-11-22)" in msg
     assert 'href="https://jobs.ashbyhq.com/supabase/1"' in msg
     assert "Backend Engineer #1" in msg
     assert "[88/100]" in msg
-    assert "postgresql, typescript" in msg
+    assert "Skills:" not in msg
+    assert "Open Job Posting" not in msg
 
 
 def test_format_telegram_messages_chunks_long_reports() -> None:
@@ -115,9 +117,23 @@ def test_send_telegram_test_message() -> None:
     assert err == ""
 
 
+def test_format_telegram_messages_skipped_seen_hint() -> None:
+    cfg = AppConfig()
+    messages = format_telegram_messages(
+        jobs=[],
+        config=cfg,
+        now=datetime(2026, 11, 22, 11, 0),
+        skipped_seen_count=7,
+    )
+    assert len(messages) == 1
+    assert "7 match(es) were already seen" in messages[0]
+    assert "jobctl history --clear" in messages[0]
+
+
 class TestTelegramNotifier(unittest.TestCase):
     def test_all(self) -> None:
         test_format_telegram_messages_contains_clickable_links_and_no_files()
         test_format_telegram_messages_chunks_long_reports()
         test_send_telegram_report_posts_message_only()
         test_send_telegram_test_message()
+        test_format_telegram_messages_skipped_seen_hint()

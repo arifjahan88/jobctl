@@ -46,6 +46,31 @@ def test_history_store_marks_first_seen_as_new_and_second_as_seen(
     assert second.times_seen == 2
     assert store.count() == 1
 
+    # clear_older_than should remove old rows and keep fresh rows
+    old_now = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
+    fresh_now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    old_job = Job(
+        title="Old DevOps Engineer",
+        company="LegacyCloud",
+        location="Remote",
+        job_type="full-time",
+        work_mode="remote",
+        description="Docker and Kubernetes",
+        url="https://example.com/old-job",
+        source="Remotive",
+        posted_date="2026-11-10",
+    )
+    store.record_jobs([_make_scored(old_job)], now=old_now)
+    assert store.count() == 2
+    removed_old = store.clear_older_than(days=5, now=fresh_now)
+    assert removed_old == 1
+    assert store.count() == 1
+
+    # clear() removes everything
+    deleted_all = store.clear()
+    assert deleted_all == 1
+    assert store.count() == 0
+
 
 def test_exporters_write_into_search_results_dated_folder(
     tmp_path: Path,
@@ -67,6 +92,14 @@ def test_exporters_write_into_search_results_dated_folder(
     assert csv_file.exists() and "Backend Software Engineer II" in csv_file.read_text(encoding="utf-8")
     assert json_file.exists() and '"generated_by": "jobctl"' in json_file.read_text(encoding="utf-8")
     assert md_file.exists() and "# jobctl — Matched Engineering Jobs" in md_file.read_text(encoding="utf-8")
+
+    # Verify clearer message when matches were skipped due to only_new=true
+    skipped_md = write_jobs_to_markdown(
+        [], tmp_path / "skipped.md", now=fixed_now, skipped_seen_count=5
+    )
+    skipped_text = skipped_md.read_text(encoding="utf-8")
+    assert "5 matching job(s) were already seen" in skipped_text
+    assert "jobctl history --clear" in skipped_text
 
 
 class TestHistoryAndExporters(unittest.TestCase):

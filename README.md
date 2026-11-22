@@ -144,19 +144,15 @@ docker compose run --rm jobctl notify-test
 ```text
 🚀 jobctl Daily Job Report — 2026-11-22 11:00
 👤 Profile: Software Engineer (Mid-Level (2-5 yrs) · Remote)
-⏱ Window: Previous 2 days
+⏱ Window: Previous 2 days (2026-11-20 to 2026-11-22)
 📂 Saved to: search_results/2026-11-22
 ✅ New Matches: 2
 
 1. [88/100] Backend Engineer — Supabase
    📅 2026-11-22 · 🌍 remote (full-time) · Ashby (supabase)
-   🛠 Skills: postgresql, typescript, node.js, docker, aws
-   🔗 Open Job Posting
 
 2. [82/100] DevOps Engineer — GitLab
    📅 2026-11-21 · 🌍 remote (full-time) · Greenhouse (gitlab)
-   🛠 Skills: kubernetes, docker, terraform, ci/cd, linux
-   🔗 Open Job Posting
 ```
 
 ---
@@ -187,7 +183,8 @@ jobctl run
 | `jobctl daemon` | Run continuous background scheduler (`--time`, `--schedule-days`, `--tz`, `--run-on-startup`) |
 | `jobctl notify-test` | Send a test message to verify `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` |
 | `jobctl sources` | List all 14 registered sources, enabled status, and per-source limits |
-| `jobctl history --limit 25` | Inspect recently discovered jobs recorded in SQLite |
+| `jobctl history --limit 25` | Inspect recently discovered jobs recorded in SQLite (`--urls` shows direct links, `--path` shows DB path) |
+| `jobctl history --clear` | Delete all tracked jobs from SQLite history (`--older-than N` prunes entries older than N days) |
 | `jobctl init` | Create `jobctl.toml` from [`jobctl.example.toml`](jobctl.example.toml) |
 
 ### Makefile Shortcuts
@@ -199,6 +196,8 @@ make lint          # Run ruff checks on src/ and tests/
 make run           # Execute a one-shot jobctl run
 make daemon        # Run the scheduler locally in foreground
 make notify-test   # Send a Telegram diagnostic message
+make history-clear # Clear all tracked jobs from SQLite (data/jobctl.db)
+make reset-all     # Delete data/jobctl.db and all search_results/ folders
 make docker-up     # Build and start jobctl-daemon in background (docker compose up -d --build)
 make docker-logs   # Tail live logs from jobctl-daemon
 make docker-down   # Stop and remove the Docker Compose container
