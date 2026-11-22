@@ -1,0 +1,12 @@
+services:
+  jobctl:
+    build: .
+    image: jobctl:latest
+    container_name: jobctl-daemon
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["daemon"]
+    volumes:
+      - ./search_results:/app/search_results
+      - ./data:/app/data
