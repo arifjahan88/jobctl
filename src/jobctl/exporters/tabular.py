@@ -84,6 +84,7 @@ def write_jobs_to_markdown(
     jobs: list[ScoredJob],
     output_path: str | Path,
     now: datetime | None = None,
+    skipped_seen_count: int = 0,
 ) -> Path:
     """Export scored jobs to a clean Markdown digest."""
     target = Path(output_path)
@@ -99,7 +100,14 @@ def write_jobs_to_markdown(
     ]
 
     if not jobs:
-        lines.append("_No jobs matched your criteria in this run._")
+        if skipped_seen_count > 0:
+            lines.append(
+                f"_0 new jobs exported ({skipped_seen_count} matching job(s) were already seen in "
+                "earlier runs and skipped because `only_new = true`). Run `jobctl run --all` to "
+                "include previously seen jobs, or `jobctl history --clear` to reset SQLite history._"
+            )
+        else:
+            lines.append("_No jobs matched your criteria in this run._")
     else:
         lines.extend(
             [

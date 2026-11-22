@@ -222,8 +222,14 @@ def run_pipeline(
                         write_jobs_to_json(exported_jobs, run_paths.file_for("json"), now=current)
                     )
                 elif fmt_key in ("md", "markdown"):
+                    skipped_seen = max(0, len(matched_jobs) - len(exported_jobs))
                     written_files.append(
-                        write_jobs_to_markdown(exported_jobs, run_paths.file_for("md"), now=current)
+                        write_jobs_to_markdown(
+                            exported_jobs,
+                            run_paths.file_for("md"),
+                            now=current,
+                            skipped_seen_count=skipped_seen,
+                        )
                     )
             written_files.append(run_paths.log_file.resolve())
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import html
 import logging
 import os
@@ -78,7 +78,7 @@ def load_telegram_config_from_env(dotenv_path: str | Path = ".env") -> TelegramC
 
 
 def _format_single_job_block(index: int, job: ScoredJob) -> str:
-    """Format one matched job entry in clean Telegram HTML with a clickable Apply link."""
+    """Format one matched job entry in clean Telegram HTML with a clickable title link."""
     title_esc = html.escape(job.title)
     company_esc = html.escape(job.company)
     source_esc = html.escape(job.source)
@@ -86,25 +86,16 @@ def _format_single_job_block(index: int, job: ScoredJob) -> str:
     jtype_esc = html.escape(job.job_type)
     date_tag = html.escape(job.posted_date[:10] if job.posted_date else "Recent")
 
-    skills_preview = ", ".join(job.matched_skills[:7]) if job.matched_skills else "general match"
-    if len(job.matched_skills) > 7:
-        skills_preview += f" (+{len(job.matched_skills) - 7} more)"
-    skills_esc = html.escape(skills_preview)
-
     url_clean = (job.url or "").strip()
     if url_clean.startswith(("http://", "https://")):
         url_attr = html.escape(url_clean, quote=True)
         title_line = f"{index}. <b>[{job.match_score}/100]</b> <a href=\"{url_attr}\">{title_esc}</a> — <b>{company_esc}</b>"
-        link_line = f"   🔗 <a href=\"{url_attr}\">Open Job Posting</a>"
     else:
         title_line = f"{index}. <b>[{job.match_score}/100]</b> {title_esc} — <b>{company_esc}</b>"
-        link_line = "   🔗 Link unavailable"
 
     return (
         f"{title_line}\n"
-        f"   📅 {date_tag} · 🌍 {mode_esc} ({jtype_esc}) · <i>{source_esc}</i>\n"
-        f"   🛠 Skills: <code>{skills_esc}</code>\n"
-        f"{link_line}"
+        f"   📅 {date_tag} · 🌍 {mode_esc} ({jtype_esc}) · <i>{source_esc}</i>"
     )
 
 
@@ -114,6 +105,7 @@ def format_telegram_messages(
     run_date_dir: Path | None = None,
     now: datetime | None = None,
     max_len: int = TELEGRAM_MAX_MESSAGE_LEN,
+    skipped_seen_count: int = 0,
 ) -> list[str]:
     """
     Build one or more HTML-formatted Telegram messages containing all matched job links.
@@ -126,20 +118,32 @@ def format_telegram_messages(
     modes_esc = html.escape(", ".join(m.title() for m in config.profile.work_modes))
     folder_str = html.escape(str(run_date_dir)) if run_date_dir else f"search_results/{current.strftime('%Y-%m-%d')}"
 
+    window_days = config.filters.max_posting_age_days
+    start_date_str = (current - timedelta(days=window_days)).strftime("%Y-%m-%d")
+    end_date_str = current.strftime("%Y-%m-%d")
+
     header = (
         f"🚀 <b>jobctl Daily Job Report — {date_str}</b>\n"
         f"👤 <b>Profile:</b> {role_esc} ({level_esc} · {modes_esc})\n"
-        f"⏱ <b>Window:</b> Previous {config.filters.max_posting_age_days} days\n"
+        f"⏱ <b>Window:</b> Previous {window_days} days ({start_date_str} to {end_date_str})\n"
         f"📂 <b>Saved to:</b> <code>{folder_str}</code>\n"
         f"✅ <b>New Matches:</b> {len(jobs)}\n"
     )
 
     if not jobs:
-        empty_msg = (
-            f"{header}\n"
-            f"<i>No new matching jobs met your score threshold ({config.scoring.min_score}/100) "
-            f"in the last {config.filters.max_posting_age_days} days.</i>"
-        )
+        if skipped_seen_count > 0:
+            empty_msg = (
+                f"{header}\n"
+                f"<i>0 new jobs exported ({skipped_seen_count} match(es) were already seen in "
+                "earlier runs). Run <code>jobctl run --all</code> to export all matches or "
+                "<code>jobctl history --clear</code> to reset history.</i>"
+            )
+        else:
+            empty_msg = (
+                f"{header}\n"
+                f"<i>No new matching jobs met your score threshold ({config.scoring.min_score}/100) "
+                f"in the last {config.filters.max_posting_age_days} days.</i>"
+            )
         return [empty_msg]
 
     messages: list[str] = []
@@ -183,7 +187,13 @@ def _post_telegram_message(
         res = http.post(url, json=payload, timeout=12)
         if res.status_code == 200:
             return True, ""
-        return False, f"HTTP {res.status_code}: {res.text[:200]}"
+        err = f"HTTP {res.status_code}: {res.text[:200]}"
+        if res.status_code == 400 and "chat not found" in res.text.lower():
+            err += (
+                " | Hint: Open your bot in Telegram, press Start (/start), "
+                "and confirm TELEGRAM_CHAT_ID matches your numeric chat ID."
+            )
+        return False, err
     except Exception as exc:
         return False, str(exc)
 
@@ -195,6 +205,7 @@ def send_telegram_report(
     run_date_dir: Path | None = None,
     now: datetime | None = None,
     session: requests.Session | None = None,
+    skipped_seen_count: int = 0,
 ) -> bool:
     """
     Send formatted job match messages (with clickable links, no files) to Telegram.
@@ -221,6 +232,7 @@ def send_telegram_report(
         config=config,
         run_date_dir=run_date_dir,
         now=now,
+        skipped_seen_count=skipped_seen_count,
     )
 
     all_ok = True

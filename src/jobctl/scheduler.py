@@ -205,11 +205,13 @@ def run_daemon(
                 now=cycle_now,
             )
             date_dir = result.run_paths.date_dir if result.run_paths else None
+            skipped_seen = max(0, len(result.matched_jobs) - len(result.exported_jobs))
             send_telegram_report(
                 jobs=result.exported_jobs,
                 config=cfg,
                 run_date_dir=date_dir,
                 now=cycle_now,
+                skipped_seen_count=skipped_seen,
             )
         except Exception as exc:
             logger.error(f"Scheduled run encountered an error: {exc}")
