@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 import re
 
 from jobctl.config import FilterConfig, ProfileConfig
@@ -59,7 +60,10 @@ def parse_posted_date(date_str: str) -> datetime | None:
         "%Y-%m-%dT%H:%M:%S.%f%z",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d",
+        "%d %b %Y",
+        "%d %B %Y",
     ):
         try:
             dt = datetime.strptime(normalized, fmt)
@@ -68,6 +72,15 @@ def parse_posted_date(date_str: str) -> datetime | None:
             return dt.astimezone(timezone.utc)
         except ValueError:
             continue
+
+    # Try RFC-2822 / RSS pubDate format (e.g., "Sat, 21 Nov 2026 14:30:00 +0000")
+    try:
+        dt = parsedate_to_datetime(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        pass
 
     return None
 
